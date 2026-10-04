@@ -1,0 +1,716 @@
+{
+  "name": "BİM Aktüel Ürünler YouTube Botu",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://www.bim.com.tr/aktuel-urunler.aspx",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "name": "BİM Sayfasını Çek2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -1376,
+        112
+      ],
+      "id": "365f5f79-abc2-45ce-8e18-9d10da0487a9"
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = items[0].json.data;\nconst dates = [];\nconst regex = /href=\"[^\"]*Bim_AktuelTarihKey=(\\d+)\"[^>]*>([\\s\\S]*?)<\\/a>/g;\nlet match;\nwhile ((match = regex.exec(html)) !== null) {\n  let key = match[1];\n  let dateText = match[2].trim().replace(/<[^>]*>?/gm, '');\n  if (dateText.toLowerCase().includes(\"mobil\") || key === \"100\") continue;\n  let videoTitleContext = dateText.includes(\"-\") ? \"Haftanın İndirim Fırsatları\" : \"Aktüel Ürünler Kataloğu\";\n  if (!dates.some(d => d.json.key === key)) {\n      dates.push({\n          json: {\n              key: key,\n              date_text: dateText,\n              full_url: `https://www.bim.com.tr/Categories/100/aktuel-urunler.aspx?Bim_AktuelTarihKey=${key}`,\n              video_suffix: videoTitleContext \n          }\n      });\n  }\n}\ndates.sort((a, b) => parseInt(a.json.key) - parseInt(b.json.key));\nif (dates.length === 0) return [];\nreturn dates;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1152,
+        112
+      ],
+      "name": "Tarihleri Ayıkla",
+      "id": "88c21485-2485-4b27-a310-a4313b4b2221"
+    },
+    {
+      "parameters": {
+        "operation": "rowNotExists",
+        "dataTableId": {
+          "__rl": true,
+          "value": "5iLp9WCOvwp6tNnJ",
+          "mode": "list",
+          "cachedResultName": "Bim",
+          "cachedResultUrl": "/projects/q7AtLK0gnNXKpgn3/datatables/5iLp9WCOvwp6tNnJ"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "number",
+              "keyValue": "={{ $json.key }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -928,
+        112
+      ],
+      "name": "Eğer İşlenmediyse",
+      "id": "abcdabd1-28fa-44a8-906d-1027dd224baa"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        -704,
+        112
+      ],
+      "name": "Limit1",
+      "id": "1bba0bb9-a9d5-49c8-80a2-b8f8afcf5511"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "5iLp9WCOvwp6tNnJ",
+          "mode": "list",
+          "cachedResultName": "Bim",
+          "cachedResultUrl": "/projects/q7AtLK0gnNXKpgn3/datatables/5iLp9WCOvwp6tNnJ"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "number": 0,
+            "tarih": "={{ $json.date_text }}"
+          },
+          "matchingColumns": [
+            "hataad"
+          ],
+          "schema": [
+            {
+              "id": "tarih",
+              "displayName": "tarih",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "number",
+              "displayName": "number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        112
+      ],
+      "name": "Tabloya Kaydet",
+      "id": "f9b78e9c-8de9-4708-8f55-6cc7741aeb86"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Tarihleri Ayıkla').item.json.full_url }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "name": "BİM Ürünleri Çek",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -256,
+        112
+      ],
+      "id": "d9b8c5d4-1de3-45d8-b520-e4107f2fe233"
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = items[0].json.data;\nconst results = [];\nconst parts = html.split('<div class=\"product');\nlet validCount = 0;\nfunction toTitleCase(str) { return str.replace(/\\S+/g, function(txt) { return txt.charAt(0).toLocaleUpperCase('tr-TR') + txt.slice(1).toLocaleLowerCase('tr-TR'); }); }\nfunction generateTags(title) { let tags = [\"#BİM\", \"#BimAktüel\", \"#İndirim\", \"#Kampanya\"]; let cleanTitle = title.replace(/[^a-zA-Z0-9çğıöşüÇĞİÖŞÜ]/g, \"\"); if (cleanTitle.length < 20 && cleanTitle.length > 3) tags.push(\"#\" + cleanTitle); return tags.join(\" \"); }\n\nfor (let i = 1; i < parts.length; i++) {\n    const part = parts[i];\n    const hasPrice = part.match(/class=\"[^\"]*(price|fiyat)/i);\n    if (!hasPrice) continue; \n    const titleMatch = part.match(/<h2 class=\"title\">([^<]*)<\\/h2>/i);\n    let title = titleMatch ? titleMatch[1].trim() : null;\n    if (!title) continue;\n    let rawPrice = '';\n    const priceMatch = part.match(/class=\"(?:price|fiyat)[^>]*>([\\s\\S]*?)<\\/div>/i);\n    if (priceMatch && priceMatch[1]) rawPrice = priceMatch[1].replace(/<[^>]*>?/gm, '').trim();\n    if (rawPrice.endsWith(',')) rawPrice = rawPrice.slice(0, -1);\n    let visualPrice = rawPrice; \n    let cleanNumbers = rawPrice.replace(/\\./g, '');\n    let priceParts = cleanNumbers.split(',');\n    let lira = priceParts[0].trim();\n    let kurus = (priceParts.length > 1) ? priceParts[1].trim() : '00';\n    let spokenPriceText = \"\";\n    if (!isNaN(lira) && lira !== \"\") spokenPriceText += `${lira} Lira`;\n    if (kurus !== '00' && kurus !== '' && !isNaN(kurus)) spokenPriceText += ` ${kurus} Kuruş`;\n    let spokenTitle = toTitleCase(title);\n    spokenTitle = spokenTitle.replace(/\\bkg\\b/gi, ' Kilogram ').replace(/\\bgr\\b/gi, ' Gram ').replace(/\\bcm\\b/gi, ' Santim ').replace(/\\blt\\b/gi, ' Litre ').replace(/\\bml\\b/gi, ' Mililitre ').replace(/\\badet\\b/gi, ' tane ');\n    spokenTitle = spokenTitle.replace(/\\bV(\\d+)/gi, 'Ve $1'); \n    while (/\\d\\.\\d/.test(spokenTitle)) spokenTitle = spokenTitle.replace(/(\\d)\\.(\\d)/g, '$1 Nokta $2');\n    let safeSpokenTitle = spokenTitle.replace(/[\"']/g, \"\");\n    let ttsText = `${safeSpokenTitle} ${spokenPriceText}`; \n    let autoTags = generateTags(title);\n    let description = `${spokenTitle} fiyatı: ${visualPrice} TL! \\n${autoTags}`;\n    const xsrcMatch = part.match(/xsrc=\"([^\"]*)\"/i);\n    const srcMatch = part.match(/src=\"([^\"]*)\"/i);\n    let imageUrl = (xsrcMatch && xsrcMatch[1]) ? xsrcMatch[1] : (srcMatch && srcMatch[1] ? srcMatch[1] : null);\n    if (!imageUrl) continue;\n    if (!imageUrl.startsWith('http')) { if (!imageUrl.startsWith('/')) imageUrl = '/' + imageUrl; imageUrl = 'https://www.bim.com.tr' + imageUrl; }\n    const safeTitle = title.replace(/['\":]/g, '');\n    const safePrice = visualPrice.replace(/['\":]/g, '') + \" TL\"; \n    results.push({\n        json: { product_name: safeTitle, product_price: safePrice, tts_text: ttsText, video_tags: autoTags, video_description: description, product_image: imageUrl, imgName: `/files/img_${validCount}.jpg`, audioName: `/files/audio_${validCount}.mp3`, clipName: `/files/clip_${validCount}.mp4`, index: validCount }\n    });\n    validCount++;\n}\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        112
+      ],
+      "name": "Veri ve Fiyat Ayıkla1",
+      "id": "5754fe37-8550-4c2c-905d-1a7e6303315e"
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "name": "Döngü Başlat1",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [
+        192,
+        112
+      ],
+      "id": "45227d2e-cdb2-49a1-b339-bbbf10f09d86"
+    },
+    {
+      "parameters": {
+        "amount": 1.5
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        416,
+        16
+      ],
+      "name": "Bekleme",
+      "id": "571a0108-dc51-4692-bd61-676d701180cd",
+      "webhookId": "007bf2e4-f3d9-463c-b9d6-3aaf4dedd224"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.product_image }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "name": "1. Resmi İndir1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        640,
+        16
+      ],
+      "id": "6df8bc48-6120-4dbc-a1c3-caa0ec532cd7"
+    },
+    {
+      "parameters": {
+        "fileName": "={{ $('Döngü Başlat1').item.json.imgName }}",
+        "options": {}
+      },
+      "name": "2. Resmi Kaydet1",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        864,
+        16
+      ],
+      "id": "b226a1ea-3b5d-49aa-9fd9-f711ec177d60"
+    },
+    {
+      "parameters": {
+        "command": "=edge-tts --text \"{{ $('Döngü Başlat1').item.json.tts_text }}\" --write-media {{ $('Döngü Başlat1').item.json.audioName }} --voice tr-TR-AhmetNeural"
+      },
+      "name": "3. Sesi Oluştur (Local)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        16
+      ],
+      "id": "83f65ae0-fe1d-4287-8a30-ae63a7a98fd1"
+    },
+    {
+      "parameters": {
+        "command": "=ffmpeg -y -loop 1 -i {{ $('Döngü Başlat1').item.json.imgName }} -i {{ $('Döngü Başlat1').item.json.audioName }} -filter_complex \"[0:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,boxblur=40:20[bg];[0:v]scale=1920:1080:flags=lanczos:force_original_aspect_ratio=decrease,hqdn3d=1.5:1.5:6:6,unsharp=5:5:1.0:5:5:0.0[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,drawtext=text='{{ $('Döngü Başlat1').item.json.product_name }}':fontcolor=white:fontsize=75:box=1:boxcolor=black@0.5:boxborderw=8:x=(w-text_w)/2:y=80,drawtext=text='{{ $('Döngü Başlat1').item.json.product_price }}':fontcolor=yellow:fontsize=100:box=1:boxcolor=black@0.6:boxborderw=8:x=(w-text_w)/2:y=h-250\" -af \"apad=pad_dur=0.5\" -c:v libx264 -preset ultrafast -crf 18 -tune stillimage -c:a aac -b:a 320k -shortest -pix_fmt yuv420p {{ $('Döngü Başlat1').item.json.clipName }}"
+      },
+      "name": "5. Klip Yap (Fiyatlı)1",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1376,
+        16
+      ],
+      "id": "a8056454-ef9f-44aa-9673-2447634731a2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $('Veri ve Fiyat Ayıkla1').all(); \nlet fileListContent = '';\nlet uniqueTags = new Set();\nlet productList = [];\nuniqueTags.add('BİM'); uniqueTags.add('Aktüel'); uniqueTags.add('İndirim'); uniqueTags.add('Kampanya');\nconst today = new Date().toLocaleDateString('tr-TR');\nif (!items.length) return [];\nfor (const item of items) {\n  if (item.json.clipName) fileListContent += `file '${item.json.clipName}'\\n`;\n  if (item.json.product_name) productList.push(`- ${item.json.product_name}`);\n  if (item.json.video_tags) {\n      const tags = item.json.video_tags.split(' ');\n      tags.forEach(tag => {\n          let cleanTag = tag.replace(/[^a-zA-Z0-9çğıöşüÇĞİÖŞÜ]/g, '').trim();\n          if(cleanTag.length > 1) uniqueTags.add(cleanTag);\n      });\n  }\n}\nlet finalTagsString = Array.from(uniqueTags).join(',');\nif (finalTagsString.length > 400) { finalTagsString = finalTagsString.substring(0, 400); finalTagsString = finalTagsString.substring(0, finalTagsString.lastIndexOf(',')); }\nconst descriptionHashtags = Array.from(uniqueTags).map(t => `#${t}`).join(' ');\nconst finalDescription = `BİM Aktüel Ürünler Kataloğu (${today})\\n\\nBu hafta BİM mağazalarına gelecek olan aktüel fırsat ürünlerini derledik. İyi seyirler!\\n\\n📋 Ürün Listesi:\\n${productList.join('\\n')}\\n\\nDaha fazlası için abone olun! 🔔\\n\\n${descriptionHashtags}`;\nconst binaryData = Buffer.from(fileListContent).toString('base64');\nreturn {\n  json: { success: true, final_description: finalDescription, final_tags: finalTagsString },\n  binary: { data: { data: binaryData, mimeType: 'text/plain', fileName: 'clips_list.txt' } }\n};"
+      },
+      "name": "Liste Hazırla1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        416,
+        272
+      ],
+      "id": "1c7b8f55-d01b-4fc8-b03e-01ba8bfeb58b"
+    },
+    {
+      "parameters": {
+        "fileName": "/files/clips_list.txt",
+        "options": {}
+      },
+      "name": "Listeyi Kaydet1",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        672,
+        272
+      ],
+      "id": "a15d9902-52a6-4909-b171-d9b0da1b5673"
+    },
+    {
+      "parameters": {
+        "command": "ffmpeg -y -f concat -safe 0 -i /files/clips_list.txt -c copy /files/final_bim_video_fiyatli.mp4"
+      },
+      "name": "Tümünü Birleştir1",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        912,
+        272
+      ],
+      "id": "818b4698-8ee8-4a4a-9cd4-836f9c3d424e"
+    },
+    {
+      "parameters": {
+        "filePath": "/files/final_bim_video_fiyatli.mp4"
+      },
+      "name": "Videoyu Oku1",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        1168,
+        272
+      ],
+      "id": "689992ea-f43e-4a8f-9739-aefec493b0cf"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nfor (const item of items) {\n  if (item.binary && item.binary.data) {\n    item.binary.data.mimeType = 'video/mp4';\n    item.binary.data.fileExtension = 'mp4';\n    if (!item.binary.data.fileName) item.binary.data.fileName = 'bim_video.mp4';\n  }\n}\nreturn items;"
+      },
+      "name": "Code in JavaScript3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        272
+      ],
+      "id": "64c3eca7-6abc-4ead-8e31-86168830be42"
+    },
+    {
+      "parameters": {
+        "resource": "video",
+        "operation": "upload",
+        "title": "=BİM {{ $('Limit1').first().json.date_text }} | {{ $('Limit1').first().json.video_suffix }}",
+        "regionCode": "TR",
+        "categoryId": "26",
+        "options": {
+          "description": "={{ $('Liste Hazırla1').first().json.final_description }}",
+          "tags": "={{ $('Liste Hazırla1').first().json.final_tags }}"
+        }
+      },
+      "name": "Upload a video1",
+      "type": "n8n-nodes-base.youTube",
+      "typeVersion": 1,
+      "position": [
+        1616,
+        272
+      ],
+      "id": "3dc34bbb-06d2-427f-8011-50ba2d9b5212",
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "3nnskvI3uE7aJCDP",
+          "name": "YouTube account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cloudName = 'your-cloud-name'; \nconst imageName = 'AKTÜEL_KATALOG_m4arhq';       \nconst rawDate = $('Limit1').first().json.date_text; \nconst encodedDate = encodeURIComponent(rawDate);\nconst finalUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_650,c_fit,l_text:Arial_110_bold:${encodedDate},co_white,g_east,x_50/${imageName}.jpg`;\nreturn { json: { thumbnail_url: finalUrl } };"
+      },
+      "name": "Kapak Fotoğrafı URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1872,
+        272
+      ],
+      "id": "ebea428d-6bcd-43b7-8237-c8349d4cd370"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.thumbnail_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "thumbnail"
+            }
+          }
+        }
+      },
+      "name": "Kapak Fotoğrafını İndir",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2112,
+        272
+      ],
+      "id": "f6b9d02d-516e-4a5d-9e17-bc4c3038be07"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2368,
+        272
+      ],
+      "name": "YouTube API Bekleme",
+      "id": "2bbe062f-8d05-43c0-9f4b-830aac3f1704",
+      "webhookId": "75169696-3f8b-439b-afe7-54d67a85b1a1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/upload/youtube/v3/thumbnails/set",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "youTubeOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "videoId",
+              "value": "={{ $('Upload a video1').item.json.uploadId }}"
+            },
+            {
+              "name": "uploadType",
+              "value": "media"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "image/jpeg"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "thumbnail",
+        "options": {}
+      },
+      "name": "Kapağı YouTube'a Yükle",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2624,
+        272
+      ],
+      "id": "3350715a-fc8f-44d3-ae57-36f3e1cd1fc5",
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "3nnskvI3uE7aJCDP",
+          "name": "YouTube account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1520,
+        112
+      ],
+      "id": "9955568c-7398-4c34-8cf3-ba00b97be61d",
+      "name": "When clicking ‘Execute workflow’"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "BİM Sayfasını Çek2": {
+      "main": [
+        [
+          {
+            "node": "Tarihleri Ayıkla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tarihleri Ayıkla": {
+      "main": [
+        [
+          {
+            "node": "Eğer İşlenmediyse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Eğer İşlenmediyse": {
+      "main": [
+        [
+          {
+            "node": "Limit1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit1": {
+      "main": [
+        [
+          {
+            "node": "Tabloya Kaydet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tabloya Kaydet": {
+      "main": [
+        [
+          {
+            "node": "BİM Ürünleri Çek",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BİM Ürünleri Çek": {
+      "main": [
+        [
+          {
+            "node": "Veri ve Fiyat Ayıkla1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Veri ve Fiyat Ayıkla1": {
+      "main": [
+        [
+          {
+            "node": "Döngü Başlat1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Döngü Başlat1": {
+      "main": [
+        [
+          {
+            "node": "Bekleme",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Liste Hazırla1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bekleme": {
+      "main": [
+        [
+          {
+            "node": "1. Resmi İndir1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. Resmi İndir1": {
+      "main": [
+        [
+          {
+            "node": "2. Resmi Kaydet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Resmi Kaydet1": {
+      "main": [
+        [
+          {
+            "node": "3. Sesi Oluştur (Local)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Sesi Oluştur (Local)": {
+      "main": [
+        [
+          {
+            "node": "5. Klip Yap (Fiyatlı)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Klip Yap (Fiyatlı)1": {
+      "main": [
+        [
+          {
+            "node": "Döngü Başlat1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Liste Hazırla1": {
+      "main": [
+        [
+          {
+            "node": "Listeyi Kaydet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listeyi Kaydet1": {
+      "main": [
+        [
+          {
+            "node": "Tümünü Birleştir1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tümünü Birleştir1": {
+      "main": [
+        [
+          {
+            "node": "Videoyu Oku1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Videoyu Oku1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript3": {
+      "main": [
+        [
+          {
+            "node": "Upload a video1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload a video1": {
+      "main": [
+        [
+          {
+            "node": "Kapak Fotoğrafı URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kapak Fotoğrafı URL": {
+      "main": [
+        [
+          {
+            "node": "Kapak Fotoğrafını İndir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kapak Fotoğrafını İndir": {
+      "main": [
+        [
+          {
+            "node": "YouTube API Bekleme",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube API Bekleme": {
+      "main": [
+        [
+          {
+            "node": "Kapağı YouTube'a Yükle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "BİM Sayfasını Çek2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "7324b9fe-af87-46c3-bbe7-bba934505a0e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a81c15a4efe95b79b352311c8470eb6154bb4f892fe5b7ff0874668b5ca24d16"
+  },
+  "id": "3fqvAsnUicVdg9sB",
+  "tags": []
+}

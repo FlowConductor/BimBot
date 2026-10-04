@@ -1,0 +1,17 @@
+{
+  "name": "bimbot",
+  "version": "1.0.0",
+  "description": "BİM aktüel ürünler kataloğunu otomatik YouTube videosuna dönüştüren bot",
+  "main": "bim_youtube_bot.js",
+  "scripts": {
+    "start": "node bim_youtube_bot.js",
+    "test": "echo 'Run: node bim_youtube_bot.js'"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["bim", "youtube", "automation", "tts", "ffmpeg"],
+  "author": "FlowConductor",
+  "license": "MIT",
+  "dependencies": {}
+}

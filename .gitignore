@@ -1,0 +1,29 @@
+# Runtime output
+output/
+output.log
+*.log
+
+# Sensitive credentials & tokens
+client_secret.json
+youtube_token.json
+*.env
+.env
+.env.local
+
+# Local state
+processed_dates.json
+handoff.md
+
+# Dependencies
+node_modules/
+
+# Local agent / IDE tooling
+.claude/
+.agents/
+skills-lock.json
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
